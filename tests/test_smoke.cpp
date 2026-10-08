@@ -1,7 +1,7 @@
 
 int main() {
-  if (1 + 1 == 2) {
-    return 0;
-  }
-  return 1;
+    if (1 + 1 == 2) {
+        return 0;
+    }
+    return 1;
 }
