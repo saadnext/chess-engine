@@ -26,7 +26,7 @@ Next milestone: board setup helpers (starting position, print Board), then move 
 - `index` is a generic global name (POSIX historically declares index() in <strings.h>); rename or namespace if it ever collides.
 - NUM_PIECE_TYPES and the enum are not linked automatically; static_assert on King guards the last value.
 - piece_on loops over 12 bitboards; a square-to-piece array is the planned upgrade for movegen, to be justified by measurement.
-- Uncommitted work: types.h, board.h, bitboard.h changes, test_bitboard.cpp, test_board.cpp, CMakeLists.txt change, PROGRESS.md (until committed).
+
 
 ## Design decisions (with reasons)
 - Language/standard: C++20, GCC 13+ (or recent Clang), CMake. Warnings -Wall -Wextra -Wpedantic from day one. CMAKE_CXX_EXTENSIONS OFF.
@@ -42,8 +42,8 @@ Next milestone: board setup helpers (starting position, print Board), then move 
 - Layout: src/, tests/, scratch/ (never mixed with engine code). Shared code in the engine_core static library. Git: explicit "git add <files>", never "git add .".
 
 ## Repo state (last commit message, key files)
-- Last pushed commit: aea4c1f "Ignore scratch/, update PROGRESS.md for Phase 1 milestone 1".
-- Uncommitted: src/types.h, src/board.h, src/bitboard.h (is_valid_square), tests/test_bitboard.cpp, tests/test_board.cpp, CMakeLists.txt (test_board target), PROGRESS.md.
+- Last pushed commit: 48bfab3 "Add Color/PieceType types, is_valid_square, Board with piece bitboards, tests".
+
 - Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp.
 
 ## Next step
