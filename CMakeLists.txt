@@ -23,3 +23,8 @@ add_executable(test_bitboard tests/test_bitboard.cpp)
 target_compile_options(test_bitboard PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(test_bitboard PRIVATE engine_core)
 add_test(NAME bitboard COMMAND test_bitboard)
+
+add_executable(test_board tests/test_board.cpp)
+target_compile_options(test_board PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(test_board PRIVATE engine_core)
+add_test(NAME board COMMAND test_board)

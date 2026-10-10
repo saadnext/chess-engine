@@ -26,5 +26,9 @@ int main() {
     check(square_of(7, 0) == 7, "square_of(7,0) == 7");
     check(square_of(7, 7) == 63, "square_of(7,7) == 63");
 
+    check(is_valid_square(0), "is_valid_square(0)");
+    check(is_valid_square(63), "is_valid_square(63)");
+    check(!is_valid_square(64), "is_valid_square(64)");
+    check(!is_valid_square(-1), "!is_valid_square(-1)");
     return failures == 0 ? 0 : 1;
 }
