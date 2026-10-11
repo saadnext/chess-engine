@@ -2,8 +2,8 @@
 
 ## Current phase / milestone
 Phase 1: Board representation: COMPLETE (bitboards, Color/PieceType, Board with piece bitboards, starting position, Board::print).
-Housekeeping milestone (named build configurations): COMPLETE (Debug, Release, Sanitize), pending one "seen failing" check for the sanitizer config.
-Now: prove the sanitizer build catches a deliberate bug (scratch experiment), tidy .clangd, then Phase 2: move representation.
+Housekeeping milestone (named build configurations): COMPLETE and verified (Debug, Release, Sanitize).
+Now: tidy .clangd, then Phase 2: move representation.
 
 ## Completed and verified (with how it was verified)
 - Phase 0 complete: Git 2.53.0, GCC 15.2.0, CMake 4.2.3, clangd 21.1.8, clang-format 21.1.8 in WSL2 (home /home/saad-dev). Verified with --version commands.
@@ -17,26 +17,26 @@ Now: prove the sanitizer build catches a deliberate bug (scratch experiment), ti
 - src/board.cpp (in engine_core): Board::print().
 - tests/test_board.cpp via CTest: empty board, put/remove, has_piece right/wrong color, piece_on, start position (popcount 16 per side, 32 total, per-piece counts via expected[] loop, spot-checks d1/e1/d8/e8). Seen failing with a deliberate break (Queen and King swapped in back_rank_order), reverted and green.
 - Derived the popcount idiom bb & (bb - 1) (clears the lowest set bit); std::popcount (C++20, <bit>) used in tests.
-- .gitignore now uses build*/ (covers build/, build-debug/, build-release/, build-san/). Verified with git check-ignore -v (match for build-debug/, silence for build_notes.txt) and a clean git status after creating build-debug/.
+- .gitignore uses build*/ (covers build/, build-debug/, build-release/, build-san/). Verified with git check-ignore -v (match for build-debug/, silence for build_notes.txt) and a clean git status after creating build-debug/.
 - Build configurations, one directory each: build-debug (CMAKE_BUILD_TYPE=Debug), build-release (Release), build-san (Sanitize). Verified by reading the real compile lines via `cmake --build <dir> --verbose | grep "board.cpp.o -c"`:
   - Debug: -g only (no -O flag so GCC uses -O0, no -DNDEBUG, asserts active).
   - Release: -O3 -DNDEBUG, no -g (CMake's default for GCC; asserts compiled out).
   - Sanitize: -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer.
 - Custom Sanitize type defined in CMakeLists.txt via CMAKE_CXX_FLAGS_SANITIZE and CMAKE_EXE_LINKER_FLAGS_SANITIZE (CMake has no built-in Sanitize type; an unknown type is accepted silently with no flags, so the flags must be verified).
-- CTest 3/3 passed in all three configurations (ctest --test-dir <dir> --output-on-failure). ldd on build-san/test_board shows libasan.so.8 and libubsan.so.1, so the sanitizer runtime is actually linked.
+- CTest 3/3 passed in all three configurations (ctest --test-dir <dir> --output-on-failure). ldd on build-san/test_board shows libasan.so.8 and libubsan.so.1, so the sanitizer runtime is linked.
+- Sanitizer seen catching a planted bug: scratch/oob.cpp (a[argc + 3] on int[4]) built with the Sanitize flags produced a UBSan "index 4 out of bounds" report and an ASan stack-buffer-overflow report with file and line; the same file built without sanitizers printed garbage (73728) and exited normally.
+- All work pushed; origin/main up to date, working tree clean.
 
 ## Known bugs / open issues
-- Sanitizer config not yet seen catching a deliberate bug in this project (do a scratch experiment: e.g. an out-of-bounds array read or a shift by 64, built in build-san, confirm a report appears).
 - Release uses CMake's default -O3. Not yet compared with -O2; decide only with a benchmark (nodes/second), not by guessing.
 - Asserts in Board are not testable in-process (they abort). Release passing is evidence, not proof (UB can hide at -O3).
-- .clangd points CompilationDatabase at `build`, which we no longer use. Point it at one of the new directories (e.g. build-debug), or create the old build/ again. Each build dir has its own compile_commands.json.
+- .clangd points CompilationDatabase at `build`, which we no longer use. Point it at one of the new directories (e.g. build-debug); each build dir has its own compile_commands.json.
 - tests/test_board.cpp: per-piece-count check in the loop has a generic failure message (name color/type); duplicate has_piece(Black, King, 60) check; std::string built per check in the empty-board loop.
 - clang-format not yet run on src/board.h, src/board.cpp, tests/test_board.cpp (do as its own commit).
 - `index` is a generic global name (POSIX may declare index()); rename or namespace if it collides.
 - NUM_PIECE_TYPES and the enum are not linked automatically; static_assert on King guards the last value.
 - piece_on loops over 12 bitboards; a square-to-piece array is the planned upgrade for movegen, to be justified by measurement.
 - back_rank_order and piece_to_char are namespace-scope constexpr arrays in a header; prefer inline constexpr.
-- Unpushed local commit(s) exist (see Repo state).
 
 ## Design decisions (with reasons)
 - Language/standard: C++20, GCC 13+ (or recent Clang), CMake. Warnings -Wall -Wextra -Wpedantic from day one. CMAKE_CXX_EXTENSIONS OFF.
@@ -51,12 +51,11 @@ Now: prove the sanitizer build catches a deliberate bug (scratch experiment), ti
 - Board: private pieces_ so invariants are enforced by member functions; read access via const getters. Tiny hot functions header-only; printing in board.cpp (keeps <iostream> out of the header).
 - set_start_position resets the board first; may later become set_fen(start_fen).
 - Layout: src/, tests/, scratch/ (never mixed with engine code). Shared code in the engine_core static library. Git: explicit "git add <files>", never "git add .".
-- One build directory per configuration (build-debug, build-release, build-san) so incremental builds are not invalidated by switching types. Configure with: cmake -S . -B <dir> -DCMAKE_BUILD_TYPE=<Debug|Release|Sanitize>. Use Debug for gdb, Sanitize for correctness runs, Release only for benchmarks.
+- One build directory per configuration so incremental builds are not invalidated by switching types. Configure with: cmake -S . -B <dir> -DCMAKE_BUILD_TYPE=<Debug|Release|Sanitize>. Use Debug for gdb, Sanitize for correctness runs, Release only for benchmarks.
 
 ## Repo state (last commit message, key files)
-- origin/main is at c264d60 "Add start position, Board::print, and start-position tests".
-- Local commits not yet pushed (as of the last check): fd9abf8 "Add Sanitize build type", aad87c5 "Ignore all build*/ directories". This PROGRESS.md is committed after them.
-- Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, src/board.cpp, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp. scratch/ (ignored). Build dirs build-debug/, build-release/, build-san/ (ignored).
+- Last pushed commit: "Update PROGRESS.md after build configurations" (main = origin/main, working tree clean as of the last git status). This PROGRESS.md update is not yet committed.
+- Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, src/board.cpp, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp. scratch/ (ignored, contains oob.cpp experiment). Build dirs build-debug/, build-release/, build-san/ (ignored).
 
 ## Next step
-Commit CMakeLists.txt and PROGRESS.md (explicit git add), then push. Then a scratch experiment: write a tiny program with a deliberate out-of-bounds read or an oversized shift, build it with the Sanitize flags, and confirm ASan/UBSan prints a report. After that: fix .clangd, run clang-format as its own commit, then Phase 2 (move representation).
+Commit this PROGRESS.md. Then fix .clangd (point CompilationDatabase at build-debug), one small edit, verified by checking clangd resolves includes in VS Code. After that: run clang-format as its own commit, then Phase 2 (move representation).
