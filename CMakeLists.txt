@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_library(engine_core STATIC src/bitboard.cpp)
+add_library(engine_core STATIC src/bitboard.cpp src/board.cpp)
 target_include_directories(engine_core PUBLIC src)
 target_compile_options(engine_core PRIVATE -Wall -Wextra -Wpedantic)
 

@@ -1,6 +1,7 @@
 #include "bitboard.h"
 #include "board.h"
 #include "types.h"
+#include <bit>
 #include <iostream>
 #include <string>
 static int failures = 0;
@@ -60,6 +61,40 @@ int main() {
 
     check(!board.has_piece(Color::White, PieceType::Knight, 1),
           "!board.has_piece(Color::White, PieceType::Knight, 1)");
+
+    board.set_start_position();
+    Bitboard white_occupancy = 0;
+    Bitboard black_occupancy = 0;
+    Bitboard all_occupancy = 0;
+
+    for (int type_idx = 0; type_idx < NUM_PIECE_TYPES; ++type_idx) {
+        white_occupancy |= board.pieces(Color::White, static_cast<PieceType>(type_idx));
+        black_occupancy |= board.pieces(Color::Black, static_cast<PieceType>(type_idx));
+    }
+
+    all_occupancy = white_occupancy | black_occupancy;
+    check(std::popcount(white_occupancy) == 16, "std::popcount(white_occupancy) == 16");
+    check(std::popcount(black_occupancy) == 16, "std::popcount(black_occupancy) == 16");
+    check(std::popcount(all_occupancy) == 32, "std::popcount(all_occupancy) == 32");
+    constexpr int expected[6] = {8, 2, 2, 2, 1, 1};
+    for (int type_idx = 0; type_idx < NUM_PIECE_TYPES; ++type_idx) {
+        check(std::popcount(board.pieces(Color::White, static_cast<PieceType>(type_idx))) ==
+                  expected[type_idx],
+              "white piece count matches expected");
+        check(std::popcount(board.pieces(Color::Black, static_cast<PieceType>(type_idx))) ==
+                  expected[type_idx],
+              "black piece count matches expected");
+    }
+
+    check(board.has_piece(Color::White, PieceType::Queen, 3),
+          "board.has_piece(Color::White, PieceType::Queen, 3)");
+    check(board.has_piece(Color::White, PieceType::King, 4),
+          "board.has_piece(Color::White, PieceType::King, 4)");
+
+    check(board.has_piece(Color::Black, PieceType::Queen, 59),
+          "board.has_piece(Color::Black, PieceType::Queen, 59)");
+    check(board.has_piece(Color::Black, PieceType::King, 60),
+          "board.has_piece(Color::Black, PieceType::King, 60)");
 
     return failures == 0 ? 0 : 1;
 }

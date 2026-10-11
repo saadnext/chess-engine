@@ -11,6 +11,14 @@ struct Piece {
     bool operator==(const Piece&) const = default;
 };
 
+constexpr PieceType back_rank_order[8] = {PieceType::Rook,   PieceType::Knight, PieceType::Bishop,
+                                          PieceType::Queen,  PieceType::King,   PieceType::Bishop,
+                                          PieceType::Knight, PieceType::Rook};
+constexpr char piece_to_char[NUM_COLORS][NUM_PIECE_TYPES] = {
+    {'P', 'N', 'B', 'R', 'Q', 'K'},
+    {'p', 'n', 'b', 'r', 'q', 'k'},
+};
+
 class Board {
   private:
     Bitboard pieces_[NUM_COLORS][NUM_PIECE_TYPES]{};
@@ -44,4 +52,15 @@ class Board {
         assert(is_valid_square(square_index));
         return test_bit(pieces_[index(color)][index(type)], square_index);
     }
+    void set_start_position() {
+        clear();
+        for (int file = 0; file < 8; ++file) {
+            put_piece(Color::White, back_rank_order[file], square_of(file, 0));
+            put_piece(Color::Black, back_rank_order[file], square_of(file, 7));
+            put_piece(Color::White, PieceType::Pawn, square_of(file, 1));
+            put_piece(Color::Black, PieceType::Pawn, square_of(file, 6));
+        }
+    }
+    void clear() { *this = Board{}; }
+    void print() const;
 };
