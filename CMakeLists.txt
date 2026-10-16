@@ -30,3 +30,8 @@ add_executable(test_board tests/test_board.cpp)
 target_compile_options(test_board PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(test_board PRIVATE engine_core)
 add_test(NAME board COMMAND test_board)
+
+add_executable(test_move tests/test_move.cpp)
+target_compile_options(test_move PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(test_move PRIVATE engine_core)
+add_test(NAME move COMMAND test_move)
