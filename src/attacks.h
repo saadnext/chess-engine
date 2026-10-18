@@ -1,5 +1,6 @@
 #pragma once
 #include "bitboard.h"
+#include "types.h"
 #include <array>
 #include <cassert>
 
@@ -60,3 +61,30 @@ static_assert(knight_attacks(0) == (square_bb(10) | square_bb(17))); // a1: c2, 
 static_assert(knight_attacks(28) ==
               (square_bb(22) | square_bb(38) | square_bb(18) | square_bb(34) | square_bb(45) |
                square_bb(43) | square_bb(13) | square_bb(11)));
+
+constexpr std::array<std::array<Bitboard, NUM_SQUARES>, NUM_COLORS> make_pawn_table() {
+    std::array<std::array<Bitboard, NUM_SQUARES>, NUM_COLORS> table{};
+    for (int sq_idx = 0; sq_idx < NUM_SQUARES; sq_idx++) {
+        // for white pawns
+        const Bitboard sq_bb = square_bb(sq_idx);
+        const Bitboard w_west = sq_bb << 7;
+        const Bitboard w_east = sq_bb << 9;
+        table[to_index(Color::White)][sq_idx] = (w_west & NOT_FILE_H) | (w_east & NOT_FILE_A);
+        // for black pawns
+        const Bitboard b_west = sq_bb >> 7;
+        const Bitboard b_east = sq_bb >> 9;
+        table[to_index(Color::Black)][sq_idx] = (b_west & NOT_FILE_A) | (b_east & NOT_FILE_H);
+    }
+    return table;
+}
+
+inline constexpr auto PAWN_ATTACKS = make_pawn_table();
+
+constexpr Bitboard pawn_attacks(Color color, int square_index) {
+    assert(is_valid_square(square_index));
+    return PAWN_ATTACKS[to_index(color)][square_index];
+}
+static_assert(pawn_attacks(Color::White, 8) == square_bb(17));
+static_assert(pawn_attacks(Color::Black, 48) == square_bb(41));
+static_assert(pawn_attacks(Color::White, 28) == (square_bb(37) | square_bb(35)));
+static_assert(pawn_attacks(Color::Black, 28) == (square_bb(19) | square_bb(21)));

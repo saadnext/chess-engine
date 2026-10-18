@@ -7,7 +7,8 @@ Phase 2: Move representation: COMPLETE (16-bit encoding, flag layout, Move class
 Phase 3: attack generation.
   Milestone 1: knight attack table: COMPLETE and pushed (4cc0010).
   Milestone 2: king attack table: COMPLETE and pushed (4c89268).
-Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
+  Milestone 3: pawn attack table: COMPLETE and verified (committing now).
+Now: Phase 3, milestone 4: sliding-piece attacks (rook/bishop/queen). Start with the concept of ray attacks and blockers (classical ray approach) before magic bitboards.
 
 ## Completed and verified (with how it was verified)
 - Phase 0 complete: Git 2.53.0, GCC 15.2.0, CMake 4.2.3, clangd 21.1.8, clang-format 21.1.8 in WSL2 (home /home/saad-dev). Verified with --version commands.
@@ -31,15 +32,21 @@ Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
 - bitboard.h additions: FILE_A..FILE_H (inline constexpr), NOT_FILE_A, NOT_FILE_H, NOT_FILE_AB, NOT_FILE_GH, file_of, rank_of (with asserts), is_valid_square(file, rank) overload (used by square_of), round-trip static_assert(square_of(file_of(37), rank_of(37)) == 37).
 - King attacks (src/attacks.h): make_king_table() builds the vertical pair (sq>>8 | sq<<8), then west = (sq>>1)|(vertical>>1) and east = (sq<<1)|(vertical<<1) (three offsets each: -1,+7,-9 west; +1,-7,+9 east), and masks by DESTINATION: west & NOT_FILE_H (west wraps from the a-file land on the h-file), east & NOT_FILE_A. Vertical needs no mask (unsigned shifts drop bits off the ends, well-defined). KING_ATTACKS inline constexpr; king_attacks(sq) = one lookup with an assert.
 - King verification: (1) first version missed the west mask: the a1 static_assert failed at compile time (898 == 770, difference 128 = bit 7 = h1), and with the assert temporarily commented out the runtime test failed on exactly squares 0,8,...,56 (a-file sources) and the 420 sum; (2) fixed; (3) coordinate-based king reference matched on all 64 squares; (4) popcount sum == 420 (4 corners x 3 + 24 edges x 5 + 36 interior x 8); (5) deliberate break (masks swapped) failed squares on files a, b, g, h only plus the 420 sum (a/h sources wrongly keep wraps, b/g sources wrongly lose legal landings; files c-f unaffected); reverted and green; (6) compile-time static_asserts: a1 -> {b1, a2, b2}, e4 -> 8 neighbours. clang-format --dry-run --Werror on src/attacks.h, src/bitboard.h, tests/test_attacks.cpp: empty (clean). ctest 5/5 in Debug, Release, Sanitize. Committed and pushed: 4c89268 (origin/main == HEAD, verified with git log).
-- tests/test_attacks.cpp: shared piece_reference(square, span<const int,8> DF, span<const int,8> DR) used by knight_reference and king_reference.
+- Pawn attacks (src/attacks.h): make_pawn_table() builds std::array<std::array<Bitboard, NUM_SQUARES>, NUM_COLORS>, indexed [color][square] with to_index(Color::White) / to_index(Color::Black). White: (sq<<7) & NOT_FILE_H | (sq<<9) & NOT_FILE_A. Black: (sq>>7) & NOT_FILE_A | (sq>>9) & NOT_FILE_H. Destination masking (each shift wraps onto exactly one far file); left-moving shifts use NOT_FILE_H, right-moving use NOT_FILE_A, for both colors. Black is White mirrored vertically. No rank masks needed: unsigned shifts drop bits off the ends. PAWN_ATTACKS inline constexpr; pawn_attacks(Color, sq) = one lookup with an assert. Captures only (pushes are not attacks). Table is filled for all 64 squares (rank 8 for White and rank 1 for Black give 0).
+- Pawn verification: (1) the answer to the pending question (shifts and masks) derived by hand and confirmed against the geometry; (2) independent coordinate-based pawn_reference (2 offsets per color) via the shared piece_reference, matched on all 64 squares for both colors; (3) popcount sum == 98 per color, derived two ways: 14 edge-file squares x 1 + 42 interior squares x 2 = 98, and 7 ranks x 8 files x 2 = 112 minus 14 off-edge = 98; (4) deliberate break (White west shift << 7 changed to >> 7): compile-time static_asserts failed first (131074 == 131072), then with them commented out the runtime test failed on squares 1-61 and 63 (every square except 0 and 62, which matched by coincidence) and the 98 sum: a wrong shift direction fails everywhere, whereas a wrong mask fails on edge files only; reverted and green; (5) compile-time static_asserts: White a2 -> {b3}, Black a7 -> {b6}, White e4 -> {d5, f5}, Black e4 -> {d3, f3}; (6) ctest 5/5 in Debug, Release, Sanitize; zero warnings. clang-format --dry-run --Werror on src/attacks.h and tests/test_attacks.cpp: empty (clean).
+- Pawn-table compile-time bug found and fixed: outer array was sized with NUM_COLORS in the loop bound instead of NUM_SQUARES, giving an out-of-range index at constant evaluation; GCC reported it via __glibcxx_assert_fail (libstdc++ assertions enabled). Diagnosis: the error means constant evaluation REACHED a failing assertion, i.e. a real bug in the builder, not a GCC limitation.
+- tests/test_attacks.cpp: shared piece_reference(square, span<const int> df, span<const int> dr) (dynamic extent, uses df.size()) used by knight_reference, king_reference and pawn_reference.
 - Lesson: ctest does not rebuild; always run cmake --build before ctest.
 - Lesson: a half-right mask passes on one file and fails on its mirror; wraps from the two edge files go to different target files. Only exhaustive comparison against an independent reference finds this.
 - Lesson: a failing static_assert stops the build, so it cannot show the per-square failure list; temporarily comment it out to see the runtime test, then restore it.
+- Lesson: constexpr evaluation is a free UB detector (out-of-bounds, bad shifts become compile errors). Read the "in constexpr expansion of" trace first.
+- Lesson: failure pattern is a diagnostic: fails on every square -> wrong shift; fails on edge files only -> wrong mask.
 
 ## Known bugs / open issues
 - Run clang-format --dry-run on src/board.h src/board.cpp src/types.h (output not yet seen); empty output closes this.
-- File-mask constants (NOT_FILE_AB, NOT_FILE_GH, NOT_FILE_A, NOT_FILE_H) are global in bitboard.h. Decision: keep unless pawn attacks show they should be local to attacks.h; revisit after pawn table.
-- tests/test_attacks.cpp: piece_reference takes std::span<const int, 8> (fixed extent); pawns have 2 offsets per color, so switch to std::span<const int> (dynamic extent). Parameters DF/DR are in constant style; consider df/dr.
+- pawn_reference stores offsets as [color][DF/DR][2]; consider two named arrays per color for readability (style only).
+- Table builders: loop bounds and table dimensions can drift apart (caused the NUM_COLORS/NUM_SQUARES bug); consider range-for or table.size() as the bound.
+- tests/test_attacks.cpp: parameters DF/DR in knight/king references are in constant style; consider df/dr to match piece_reference.
 - tests/test_attacks.cpp: failure message strings are built on every iteration even on pass (cheap at 64 squares; build only on failure if it ever matters).
 - Release uses CMake's default -O3. Not yet compared with -O2; decide only with a benchmark (nodes/second).
 - Asserts (Board, pack_move, square helpers) are not testable in-process (they abort). Release passing is evidence, not proof (UB can hide at -O3).
@@ -70,14 +77,16 @@ Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
 - Board: private pieces_ so invariants are enforced by member functions; read access via const getters.
 - set_start_position resets the board first; may later become set_fen(start_fen).
 - Attack tables: non-sliding pieces use precomputed constexpr tables built by a constexpr builder function, stored as inline constexpr std::array, accessed through a small constexpr lookup function with an assert. Geometry constants (files) live in bitboard.h because pawns, king safety and evaluation will also need them. Table builders are verified against an independent coordinate-based reference, never against themselves.
-- Wrap masking: knight masks by SOURCE file (wraps land on two files); king masks by DESTINATION file (each direction group wraps onto exactly one far file). Choose per piece by asking where a wrapped landing can end up.
+- File-mask constants (NOT_FILE_A, NOT_FILE_H, NOT_FILE_AB, NOT_FILE_GH) stay global in bitboard.h: pawns are the second user and pawn-structure evaluation will need them too. Decision closed.
+- Wrap masking: knight masks by SOURCE file (wraps land on two files); king and pawns mask by DESTINATION file (each shift wraps onto exactly one far file). Choose per piece by asking where a wrapped landing can end up.
+- Pawn attacks are a separate table from pawn pushes: attacks are captures only and are color-dependent, indexed [color][square].
 - Layout: src/, tests/, scratch/ (never mixed). Shared code in the engine_core static library (attacks.h is header-only, so no library change). Git: explicit "git add <files>", never "git add .".
 - One build directory per configuration. Configure with: cmake -S . -B <dir> -DCMAKE_BUILD_TYPE=<Debug|Release|Sanitize>. Debug for gdb/clangd, Sanitize for correctness runs, Release only for benchmarks.
 
 ## Repo state (last commit message, key files)
-- Last commit: 4c89268 "Add king attack table (constexpr), shared reference helper, tests". Pushed; origin/main == HEAD. Earlier: 3ceadc8 "Update PROGRESS.md: knight table complete and pushed", 4cc0010, d9f5d7a, 6226104.
-- Working tree: clean except this PROGRESS.md update (commit it).
+- Last commit before this milestone: 4c89268 "Add king attack table (constexpr), shared reference helper, tests". Earlier: 3ceadc8, 4cc0010, d9f5d7a, 6226104.
+- Pawn milestone commit: "Add pawn attack table (constexpr), pawn reference test" (hash to be filled in after the commit; see Next step).
 - Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, src/board.cpp, src/move.h, src/attacks.h, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp, tests/test_move.cpp, tests/test_attacks.cpp. scratch/ (ignored; contains move_bits.cpp, wrap.cpp). Build dirs build-debug/, build-release/, build-san/ (ignored).
 
 ## Next step
-Phase 3, milestone 3: pawn attacks. Concept: a pawn attack set is color-dependent and covers captures only (not pushes): two diagonal offsets per color, each wrapping off one edge file. Table indexed [color][square]. Pending question (answer in own words at the start of the new chat): which two shifts give White's pawn attacks, which file mask goes with each, and how do Black's two shifts relate to White's?
+Phase 3, milestone 4: sliding-piece attacks. Concept: a rook on an empty board attacks its whole rank and file, but blockers stop the ray, so the attack set depends on occupancy. Pending question (answer in own words at the start of the new chat): why can't a sliding piece use a single table indexed by square alone, the way the knight, king and pawn do?
