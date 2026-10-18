@@ -3,6 +3,28 @@
 #include <array>
 #include <cassert>
 
+constexpr std::array<Bitboard, NUM_SQUARES> make_king_table() {
+    std::array<Bitboard, NUM_SQUARES> table{};
+    for (int sq_idx = 0; sq_idx < NUM_SQUARES; sq_idx++) {
+        const Bitboard sq_bb = square_bb(sq_idx);
+        const Bitboard vertical = (sq_bb >> 8) | (sq_bb << 8);
+        const Bitboard west = (sq_bb >> 1) | (vertical >> 1);
+        const Bitboard east = (sq_bb << 1) | (vertical << 1);
+        table[sq_idx] = (west & NOT_FILE_H) | (east & NOT_FILE_A) | vertical;
+    }
+    return table;
+}
+
+inline constexpr auto KING_ATTACKS = make_king_table();
+
+constexpr Bitboard king_attacks(int square_index) {
+    assert(is_valid_square(square_index));
+    return KING_ATTACKS[square_index];
+}
+static_assert(king_attacks(0) == (square_bb(1) | square_bb(8) | square_bb(9)));
+static_assert(king_attacks(28) == (square_bb(27) | square_bb(29) | square_bb(20) | square_bb(36) |
+                                   square_bb(19) | square_bb(21) | square_bb(35) | square_bb(37)));
+
 constexpr std::array<Bitboard, NUM_SQUARES> make_knight_table() {
     std::array<Bitboard, NUM_SQUARES> table{};
     for (int sq_idx = 0; sq_idx < NUM_SQUARES; sq_idx++) {
@@ -34,7 +56,6 @@ constexpr Bitboard knight_attacks(int square_index) {
     assert(is_valid_square(square_index));
     return KNIGHT_ATTACKS[square_index];
 }
-
 static_assert(knight_attacks(0) == (square_bb(10) | square_bb(17))); // a1: c2, b3
 static_assert(knight_attacks(28) ==
               (square_bb(22) | square_bb(38) | square_bb(18) | square_bb(34) | square_bb(45) |

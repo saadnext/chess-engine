@@ -14,6 +14,8 @@ inline constexpr Bitboard FILE_F = FILE_A << 5;
 inline constexpr Bitboard FILE_G = FILE_A << 6;
 inline constexpr Bitboard FILE_H = FILE_A << 7;
 
+inline constexpr Bitboard NOT_FILE_A = ~FILE_A;
+inline constexpr Bitboard NOT_FILE_H = ~FILE_H;
 inline constexpr Bitboard NOT_FILE_AB = ~(FILE_A | FILE_B);
 inline constexpr Bitboard NOT_FILE_GH = ~(FILE_G | FILE_H);
 
