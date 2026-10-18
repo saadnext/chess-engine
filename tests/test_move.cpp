@@ -4,7 +4,7 @@
 #include <string>
 
 static int failures = 0;
-static void check(bool ok, std::string what) {
+static void check(bool ok, const std::string& what) {
     if (!ok) {
         std::cerr << "FAIL: " << what << "\n";
         ++failures;
