@@ -4,13 +4,14 @@
 Phase 1: Board representation: COMPLETE.
 Housekeeping (build configurations, .clangd, formatting check, header hygiene/naming cleanup): COMPLETE.
 Phase 2: Move representation: COMPLETE (16-bit encoding, flag layout, Move class, tests). Committed as 6226104.
-Phase 3: attack generation. Milestone 1: knight attack table: COMPLETE and pushed (commit 4cc0010).
-Milestone 2: king attack table: COMPLETE (verified, pending commit; confirm final rebuild + clang-format first).
+Phase 3: attack generation.
+  Milestone 1: knight attack table: COMPLETE and pushed (4cc0010).
+  Milestone 2: king attack table: COMPLETE and pushed (4c89268).
 Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
 
 ## Completed and verified (with how it was verified)
 - Phase 0 complete: Git 2.53.0, GCC 15.2.0, CMake 4.2.3, clangd 21.1.8, clang-format 21.1.8 in WSL2 (home /home/saad-dev). Verified with --version commands.
-- Local Git repo in ~/chess-engine, branch main, identity configured. GitHub via SSH (ed25519, passphrase-protected) as saadnext; origin = git@github.com:saadnext/chess-engine.git. Verified with ssh -T and successful pushes (latest: d9f5d7a..4cc0010).
+- Local Git repo in ~/chess-engine, branch main, identity configured. GitHub via SSH (ed25519, passphrase-protected) as saadnext; origin = git@github.com:saadnext/chess-engine.git. Verified with ssh -T and successful pushes (latest: 3ceadc8..4c89268).
 - Minimal CMake project (C++20, extensions off, -Wall -Wextra -Wpedantic, compile_commands export). Verified: zero-warning build.
 - CTest smoke test. Verified: passed, and failed with a deliberate break (reverted).
 - .clang-format (LLVM base, 4 spaces, column limit 100, pointers left-aligned), .cache/ and scratch/ ignored. ColumnLimit stays 100: the formatter conforms code to the rule, not the other way round.
@@ -26,22 +27,20 @@ Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
 - src/move.h: constants, static_asserts, constexpr pack_move, class Move. Layout static_assert seen failing with FLAG_SHIFT = 11, reverted.
 - tests/test_move.cpp via CTest (default move, extreme move, asymmetric move, truth table over all 16 flags, operator==/!=, sizeof == 2). Seen failing with a deliberate break, reverted. check() takes const std::string&.
 - Knight attacks (src/attacks.h, header-only): make_knight_table() builds std::array<Bitboard, 64> with 8 shifts per square (<<17, <<15, >>15, >>17, <<10, <<6, >>6, >>10), then masks by SOURCE file: A/B sources AND NOT_FILE_GH, G/H sources AND NOT_FILE_AB. KNIGHT_ATTACKS is inline constexpr (computed at compile time); knight_attacks(sq) is one lookup with an assert. Why masking by source file works: wrapped landings always end on the far side of the board, legal landings never do.
-- Knight verification: (1) scratch experiments showing wrap bugs; (2) independent coordinate-based knight_reference() matched on all 64 squares; (3) popcount sum == 336; (4) deliberate break NOT_FILE_GH -> ~FILE_H failed squares 0,8,...,56 (a-file only, since a-file wraps onto g AND h while b-file wraps onto h only) and the 336 sum; (5) deliberate break NOT_FILE_AB -> ~FILE_A failed squares 7,15,...,63 (h-file only, since h-file wraps onto a AND b while g-file wraps onto a only); (6) compile-time static_asserts: a1 -> {c2, b3}, e4 -> 8 targets. Test: tests/test_attacks.cpp via CTest (reference match, sum 336, nonzero exit on failure). Seen failing, reverted, green. ctest 5/5 in Debug, Release, Sanitize; zero warnings.
-- bitboard.h additions: FILE_A..FILE_H (inline constexpr), NOT_FILE_AB, NOT_FILE_GH, file_of, rank_of (with asserts), is_valid_square(file, rank) overload (used by square_of), round-trip static_assert(square_of(file_of(37), rank_of(37)) == 37).
-- clang-format --dry-run --Werror on src/attacks.h, src/bitboard.h, tests/test_attacks.cpp, tests/test_move.cpp printed nothing (clean) as of the knight milestone.
-- Knight milestone committed and pushed: 4cc0010. Verified with git log --oneline -5 (6226104 below it, origin/main == HEAD).
-- King attacks (src/attacks.h): make_king_table() builds the vertical pair (sq>>8 | sq<<8), then west = (sq>>1)|(vertical>>1) and east = (sq<<1)|(vertical<<1) (three offsets each: -1,+7,-9 west; +1,-7,+9 east), and masks by DESTINATION: west & NOT_FILE_H (west wraps from the a-file land on the h-file), east & NOT_FILE_A. Vertical needs no mask (unsigned shifts drop bits off the ends, well-defined). KING_ATTACKS inline constexpr; king_attacks(sq) = one lookup with an assert. NOT_FILE_A / NOT_FILE_H are used here (defined next to NOT_FILE_AB/GH in bitboard.h; confirm at review).
-- King verification: (1) first version missed the west mask: the a1 static_assert failed at compile time (898 == 770, difference 128 = bit 7 = h1), and with the assert temporarily commented out the runtime test failed on exactly squares 0,8,...,56 (a-file sources) and the 420 sum; (2) fixed; (3) independent coordinate-based king_reference() (offset table DF/DR) matched on all 64 squares; (4) popcount sum == 420 (4 corners x 3 + 24 edges x 5 + 36 interior x 8); (5) deliberate break (masks swapped: west & NOT_FILE_A, east & NOT_FILE_H) failed squares on files a, b, g, h only plus the 420 sum; reverted and green; (6) compile-time static_asserts: a1 -> {b1, a2, b2}, e4 -> 8 neighbours. ctest 5/5 in Debug, Release, Sanitize.
+- Knight verification: (1) scratch experiments showing wrap bugs; (2) independent coordinate-based reference matched on all 64 squares; (3) popcount sum == 336; (4) deliberate break NOT_FILE_GH -> ~FILE_H failed squares 0,8,...,56 (a-file only, since a-file wraps onto g AND h while b-file wraps onto h only) and the 336 sum; (5) deliberate break NOT_FILE_AB -> ~FILE_A failed squares 7,15,...,63 (h-file only, since h-file wraps onto a AND b while g-file wraps onto a only); (6) compile-time static_asserts: a1 -> {c2, b3}, e4 -> 8 targets. ctest 5/5 in Debug, Release, Sanitize; zero warnings.
+- bitboard.h additions: FILE_A..FILE_H (inline constexpr), NOT_FILE_A, NOT_FILE_H, NOT_FILE_AB, NOT_FILE_GH, file_of, rank_of (with asserts), is_valid_square(file, rank) overload (used by square_of), round-trip static_assert(square_of(file_of(37), rank_of(37)) == 37).
+- King attacks (src/attacks.h): make_king_table() builds the vertical pair (sq>>8 | sq<<8), then west = (sq>>1)|(vertical>>1) and east = (sq<<1)|(vertical<<1) (three offsets each: -1,+7,-9 west; +1,-7,+9 east), and masks by DESTINATION: west & NOT_FILE_H (west wraps from the a-file land on the h-file), east & NOT_FILE_A. Vertical needs no mask (unsigned shifts drop bits off the ends, well-defined). KING_ATTACKS inline constexpr; king_attacks(sq) = one lookup with an assert.
+- King verification: (1) first version missed the west mask: the a1 static_assert failed at compile time (898 == 770, difference 128 = bit 7 = h1), and with the assert temporarily commented out the runtime test failed on exactly squares 0,8,...,56 (a-file sources) and the 420 sum; (2) fixed; (3) coordinate-based king reference matched on all 64 squares; (4) popcount sum == 420 (4 corners x 3 + 24 edges x 5 + 36 interior x 8); (5) deliberate break (masks swapped) failed squares on files a, b, g, h only plus the 420 sum (a/h sources wrongly keep wraps, b/g sources wrongly lose legal landings; files c-f unaffected); reverted and green; (6) compile-time static_asserts: a1 -> {b1, a2, b2}, e4 -> 8 neighbours. clang-format --dry-run --Werror on src/attacks.h, src/bitboard.h, tests/test_attacks.cpp: empty (clean). ctest 5/5 in Debug, Release, Sanitize. Committed and pushed: 4c89268 (origin/main == HEAD, verified with git log).
+- tests/test_attacks.cpp: shared piece_reference(square, span<const int,8> DF, span<const int,8> DR) used by knight_reference and king_reference.
 - Lesson: ctest does not rebuild; always run cmake --build before ctest.
 - Lesson: a half-right mask passes on one file and fails on its mirror; wraps from the two edge files go to different target files. Only exhaustive comparison against an independent reference finds this.
 - Lesson: a failing static_assert stops the build, so it cannot show the per-square failure list; temporarily comment it out to see the runtime test, then restore it.
 
 ## Known bugs / open issues
-- Before committing the king milestone: rebuild all three configs and run ctest with the a1 king static_assert enabled (the last pasted cat had it commented out); run clang-format --dry-run --Werror on src/attacks.h, src/bitboard.h, tests/test_attacks.cpp (static_assert continuation lines in attacks.h look misaligned).
 - Run clang-format --dry-run on src/board.h src/board.cpp src/types.h (output not yet seen); empty output closes this.
 - File-mask constants (NOT_FILE_AB, NOT_FILE_GH, NOT_FILE_A, NOT_FILE_H) are global in bitboard.h. Decision: keep unless pawn attacks show they should be local to attacks.h; revisit after pawn table.
+- tests/test_attacks.cpp: piece_reference takes std::span<const int, 8> (fixed extent); pawns have 2 offsets per color, so switch to std::span<const int> (dynamic extent). Parameters DF/DR are in constant style; consider df/dr.
 - tests/test_attacks.cpp: failure message strings are built on every iteration even on pass (cheap at 64 squares; build only on failure if it ever matters).
-- tests/test_attacks.cpp: knight_reference and king_reference are the same loop with different offset tables; consider one shared helper (offsets in, bitboard out) when the pawn reference makes it three.
 - Release uses CMake's default -O3. Not yet compared with -O2; decide only with a benchmark (nodes/second).
 - Asserts (Board, pack_move, square helpers) are not testable in-process (they abort). Release passing is evidence, not proof (UB can hide at -O3).
 - Move has no constructor from a raw uint16_t; add a deliberate explicit one (or named factory) when the transposition table needs to store moves.
@@ -76,8 +75,8 @@ Now: Phase 3, milestone 3: pawn attacks (color-dependent, captures only).
 - One build directory per configuration. Configure with: cmake -S . -B <dir> -DCMAKE_BUILD_TYPE=<Debug|Release|Sanitize>. Debug for gdb/clangd, Sanitize for correctness runs, Release only for benchmarks.
 
 ## Repo state (last commit message, key files)
-- Last pushed commit: 4cc0010 "Add knight attack table (constexpr), reference test, file constants". Earlier: d9f5d7a, 6226104, 1de7ed7, 9e12bc2.
-- Working tree: king table (src/attacks.h), NOT_FILE_A/NOT_FILE_H (src/bitboard.h), king test (tests/test_attacks.cpp) and this PROGRESS.md are uncommitted. Suggested: git add src/attacks.h src/bitboard.h tests/test_attacks.cpp PROGRESS.md, then commit "Add king attack table (constexpr), reference test".
+- Last commit: 4c89268 "Add king attack table (constexpr), shared reference helper, tests". Pushed; origin/main == HEAD. Earlier: 3ceadc8 "Update PROGRESS.md: knight table complete and pushed", 4cc0010, d9f5d7a, 6226104.
+- Working tree: clean except this PROGRESS.md update (commit it).
 - Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, src/board.cpp, src/move.h, src/attacks.h, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp, tests/test_move.cpp, tests/test_attacks.cpp. scratch/ (ignored; contains move_bits.cpp, wrap.cpp). Build dirs build-debug/, build-release/, build-san/ (ignored).
 
 ## Next step
