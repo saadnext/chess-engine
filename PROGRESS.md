@@ -7,7 +7,7 @@ Phase 2: Move representation: COMPLETE (16-bit encoding, flag layout, Move class
 Phase 3: attack generation.
   Milestone 1: knight attack table: COMPLETE and pushed (4cc0010).
   Milestone 2: king attack table: COMPLETE and pushed (4c89268).
-  Milestone 3: pawn attack table: COMPLETE and verified (committing now).
+  Milestone 3: pawn attack table: COMPLETE and pushed (40a9f51).
 Now: Phase 3, milestone 4: sliding-piece attacks (rook/bishop/queen). Start with the concept of ray attacks and blockers (classical ray approach) before magic bitboards.
 
 ## Completed and verified (with how it was verified)
@@ -41,9 +41,9 @@ Now: Phase 3, milestone 4: sliding-piece attacks (rook/bishop/queen). Start with
 - Lesson: a failing static_assert stops the build, so it cannot show the per-square failure list; temporarily comment it out to see the runtime test, then restore it.
 - Lesson: constexpr evaluation is a free UB detector (out-of-bounds, bad shifts become compile errors). Read the "in constexpr expansion of" trace first.
 - Lesson: failure pattern is a diagnostic: fails on every square -> wrong shift; fails on edge files only -> wrong mask.
+- clang-format --dry-run --Werror on src/board.h, src/board.cpp, src/types.h: empty (clean).
 
 ## Known bugs / open issues
-- Run clang-format --dry-run on src/board.h src/board.cpp src/types.h (output not yet seen); empty output closes this.
 - pawn_reference stores offsets as [color][DF/DR][2]; consider two named arrays per color for readability (style only).
 - Table builders: loop bounds and table dimensions can drift apart (caused the NUM_COLORS/NUM_SQUARES bug); consider range-for or table.size() as the bound.
 - tests/test_attacks.cpp: parameters DF/DR in knight/king references are in constant style; consider df/dr to match piece_reference.
@@ -84,8 +84,7 @@ Now: Phase 3, milestone 4: sliding-piece attacks (rook/bishop/queen). Start with
 - One build directory per configuration. Configure with: cmake -S . -B <dir> -DCMAKE_BUILD_TYPE=<Debug|Release|Sanitize>. Debug for gdb/clangd, Sanitize for correctness runs, Release only for benchmarks.
 
 ## Repo state (last commit message, key files)
-- Last commit before this milestone: 4c89268 "Add king attack table (constexpr), shared reference helper, tests". Earlier: 3ceadc8, 4cc0010, d9f5d7a, 6226104.
-- Pawn milestone commit: "Add pawn attack table (constexpr), pawn reference test" (hash to be filled in after the commit; see Next step).
+- Last commit: 40a9f51 "Add pawn attack table (constexpr), pawn reference test". Pushed; origin/main == HEAD. Earlier: 4c89268, 3ceadc8, 4cc0010, d9f5d7a, 6226104.
 - Key files: CMakeLists.txt, .gitignore, .clangd, .clang-format, PROGRESS.md, src/main.cpp, src/bitboard.h/.cpp, src/types.h, src/board.h, src/board.cpp, src/move.h, src/attacks.h, tests/test_smoke.cpp, tests/test_bitboard.cpp, tests/test_board.cpp, tests/test_move.cpp, tests/test_attacks.cpp. scratch/ (ignored; contains move_bits.cpp, wrap.cpp). Build dirs build-debug/, build-release/, build-san/ (ignored).
 
 ## Next step
